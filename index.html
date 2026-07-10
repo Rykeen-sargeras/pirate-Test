@@ -1,11 +1,163 @@
-{
-  "$schema": "https://railway.com/railway.schema.json",
-  "build": {
-    "builder": "RAILPACK"
-  },
-  "deploy": {
-    "startCommand": "gunicorn app:app --bind 0.0.0.0:$PORT",
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3
-  }
+const spinBtn = document.getElementById('spinBtn');
+const pctEl = document.getElementById('pct');
+const tierEl = document.getElementById('tier');
+const storyBox = document.getElementById('story');
+const storyText = document.getElementById('storyText');
+const nameInput = document.getElementById('nameInput');
+const dialFill = document.getElementById('dialFill');
+const muteBtn = document.getElementById('muteBtn');
+const volumeSlider = document.getElementById('volume');
+
+const CIRCUMFERENCE = 527.8;
+
+function setDial(pct, savage) {
+  dialFill.style.strokeDashoffset = CIRCUMFERENCE - (CIRCUMFERENCE * pct) / 100;
+  dialFill.classList.toggle('savage', !!savage);
 }
+
+/* ---------------- Spin ---------------- */
+
+spinBtn.addEventListener('click', async () => {
+  startMusicIfNeeded();
+  spinBtn.disabled = true;
+  storyBox.classList.add('hidden');
+  tierEl.textContent = 'the wheel be spinnin...';
+
+  let ticks = 0;
+  const maxTicks = 18;
+  const tickInterval = setInterval(() => {
+    ticks++;
+    const fake = Math.floor(Math.random() * 100) + 1;
+    pctEl.textContent = fake + '%';
+    setDial(fake, false);
+  }, 70);
+
+  const name = nameInput.value.trim();
+  const url = name ? `/api/spin?name=${encodeURIComponent(name)}` : '/api/spin';
+
+  let data;
+  try {
+    const res = await fetch(url);
+    data = await res.json();
+  } catch (err) {
+    clearInterval(tickInterval);
+    tierEl.textContent = 'the ship hit a storm, try again';
+    spinBtn.disabled = false;
+    return;
+  }
+
+  setTimeout(() => {
+    clearInterval(tickInterval);
+    pctEl.textContent = data.percent + '%';
+    setDial(data.percent, data.percent > 95);
+    tierEl.textContent = data.tier;
+
+    if (data.story) {
+      storyText.textContent = data.story;
+      storyBox.classList.remove('hidden');
+    }
+
+    spinBtn.disabled = false;
+  }, maxTicks * 70);
+});
+
+/* ---------------- Music ----------------
+   A sea-shanty style loop generated live with the Web Audio API.
+   No audio files, no copyright - the notes are synthesized in the browser.
+*/
+
+let audioCtx = null;
+let masterGain = null;
+let shantyTimer = null;
+let muted = false;
+
+const NOTES = {
+  D3: 146.83, F3: 174.61, G3: 196.0, A3: 220.0, Bb3: 233.08, C4: 261.63,
+  D4: 293.66, F4: 349.23, G4: 392.0, A4: 440.0, Bb4: 466.16, C5: 523.25, D5: 587.33,
+};
+
+// Melody in D minor, [note, beats] - a jaunty original shanty tune
+const MELODY = [
+  ['D4', 1], ['F4', 1], ['A4', 1], ['F4', 1],
+  ['G4', 1], ['A4', 0.5], ['G4', 0.5], ['F4', 1], ['D4', 1],
+  ['C4', 1], ['D4', 1], ['F4', 1], ['G4', 1],
+  ['A4', 2], ['G4', 1], ['F4', 1],
+  ['D4', 1], ['F4', 1], ['A4', 1], ['C5', 1],
+  ['D5', 1.5], ['C5', 0.5], ['A4', 1], ['G4', 1],
+  ['F4', 1], ['G4', 1], ['A4', 0.5], ['G4', 0.5], ['F4', 1],
+  ['D4', 3], ['D4', 1],
+];
+
+// Bass line, one note per bar (4 beats)
+const BASS = ['D3', 'G3', 'F3', 'A3', 'D3', 'G3', 'F3', 'D3'];
+
+const BPM = 168;
+const BEAT = 60 / BPM;
+
+function playNote(freq, startTime, duration, type, gainLevel) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(gainLevel, startTime + 0.02);
+  gain.gain.setValueAtTime(gainLevel, startTime + duration * 0.7);
+  gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.05);
+}
+
+function scheduleLoop(startTime) {
+  let t = startTime;
+
+  // Melody - square wave gives it a fife/whistle feel
+  for (const [note, beats] of MELODY) {
+    playNote(NOTES[note], t, beats * BEAT * 0.9, 'square', 0.05);
+    t += beats * BEAT;
+  }
+
+  // Bass - triangle wave, one note per bar
+  let bt = startTime;
+  for (const note of BASS) {
+    playNote(NOTES[note], bt, 4 * BEAT * 0.95, 'triangle', 0.09);
+    bt += 4 * BEAT;
+  }
+
+  const loopLength = t - startTime;
+  shantyTimer = setTimeout(() => scheduleLoop(audioCtx.currentTime + 0.05), (loopLength - 0.2) * 1000);
+}
+
+function startMusicIfNeeded() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return;
+  }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = muted ? 0 : volumeSlider.value / 100;
+  masterGain.connect(audioCtx.destination);
+  scheduleLoop(audioCtx.currentTime + 0.1);
+}
+
+function applyVolume() {
+  if (!masterGain) return;
+  masterGain.gain.setTargetAtTime(muted ? 0 : volumeSlider.value / 100, audioCtx.currentTime, 0.03);
+}
+
+volumeSlider.addEventListener('input', () => {
+  if (muted && volumeSlider.value > 0) {
+    muted = false;
+    muteBtn.innerHTML = '&#9835;';
+  }
+  startMusicIfNeeded();
+  applyVolume();
+});
+
+muteBtn.addEventListener('click', () => {
+  startMusicIfNeeded();
+  muted = !muted;
+  muteBtn.innerHTML = muted ? '&#128263;' : '&#9835;';
+  applyVolume();
+});

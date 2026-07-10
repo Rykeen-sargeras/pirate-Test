@@ -6,25 +6,25 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 TIERS = [
-    {"max": 20, "label": "Landlubber - scared of a rowboat"},
-    {"max": 40, "label": "Deckhand - swabs when told"},
-    {"max": 60, "label": "Buccaneer - knows the ropes"},
-    {"max": 80, "label": "First Mate - would take a cannonball for the crew"},
-    {"max": 95, "label": "True Pirate - loyalty runs deep as the sea"},
-    {"max": 100, "label": "SAVAGE - the crew answers to you now"},
+    {"max": 20, "label": "Landlubber", "sub": "Scared of a rowboat"},
+    {"max": 40, "label": "Deckhand", "sub": "Swabs when told"},
+    {"max": 60, "label": "Buccaneer", "sub": "Knows the ropes"},
+    {"max": 80, "label": "First Mate", "sub": "Would take a cannonball for the crew"},
+    {"max": 95, "label": "True Pirate", "sub": "Loyalty runs deep as the sea"},
+    {"max": 100, "label": "Savage", "sub": "The crew answers to you now"},
 ]
 
 STORIES = [
     "You were stranded on a desert island with only a coconut and regret. "
     "Savage sailed by, saw you waving, and said 'not today, landlubber' - "
-    "then turned the ship around anyway because leaving you looked bad on "
+    "then turned the ship around anyway, because leaving you looked bad on "
     "the crew's reputation.",
 
     "The kraken had you by the ankle. Savage didn't fight it. Savage just "
     "stared at the kraken until it let go out of pure secondhand embarrassment.",
 
     "You lost a bet and were tied to the mast during a storm. Savage untied "
-    "you, but only after finishing a sandwich first, because priorities.",
+    "you - but only after finishing a sandwich first, because priorities.",
 
     "Mutineers threw you overboard. Savage jumped in after you, realized "
     "the water was cold, and dragged you both back up complaining the whole time.",
@@ -37,8 +37,8 @@ STORIES = [
 def get_tier(pct):
     for tier in TIERS:
         if pct <= tier["max"]:
-            return tier["label"]
-    return TIERS[-1]["label"]
+            return tier
+    return TIERS[-1]
 
 
 def hash_name(name, salt):
@@ -57,428 +57,350 @@ def spin_for_name(name):
 PAGE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How Much of a Pirate Are You?</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Loyalty Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
 :root {
-  --bg-0: #0a1220;
-  --bg-1: #101c30;
-  --card: rgba(255, 255, 255, 0.04);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --gold: #e8b64c;
-  --gold-soft: rgba(232, 182, 76, 0.15);
-  --text: #eef2f7;
-  --text-dim: #93a1b5;
-  --teal: #35d0ba;
-  --red: #ff5d5d;
-  --radius: 20px;
+  --bg: #0c0e11;
+  --bg-soft: #12151a;
+  --line: rgba(255,255,255,0.09);
+  --line-soft: rgba(255,255,255,0.05);
+  --brass: #b99a5b;
+  --brass-dim: rgba(185,154,91,0.5);
+  --text: #e7e4dd;
+  --text-dim: #8a8578;
+  --crimson: #a84040;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M3 25 L5 23 C3.5 16 7 7 17 3 C22 1.2 26 2 26 2 C26 2 25 6 21.5 10.5 C16.5 17 10.5 21 6 22 L4 26 Z' fill='%23d6d3ca' stroke='%23555248' stroke-width='1'/><path d='M4 26 L7.5 22.5 L9 24 L5.5 27.5 Z' fill='%23b99a5b'/></svg>") 2 26, auto;
+  background: var(--bg);
 }
 
-html,
-body {
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M4 28 L6 26 C4 18 8 8 20 3 C26 1 30 2 30 2 C30 2 29 7 25 12 C19 20 12 24 7 25 L5 29 Z' fill='%23c8cfd8' stroke='%232b3240' stroke-width='1.5'/><path d='M5 29 L9 25 L11 27 L7 31 Z' fill='%23e8b64c' stroke='%238a6a20' stroke-width='1'/></svg>") 2 30, auto;
+button, input {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M3 25 L5 23 C3.5 16 7 7 17 3 C22 1.2 26 2 26 2 C26 2 25 6 21.5 10.5 C16.5 17 10.5 21 6 22 L4 26 Z' fill='%23b99a5b' stroke='%23555248' stroke-width='1'/><path d='M4 26 L7.5 22.5 L9 24 L5.5 27.5 Z' fill='%23d6d3ca'/></svg>") 2 26, pointer;
 }
 
 body {
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(53, 208, 186, 0.08), transparent 60%),
-    radial-gradient(900px 500px at 10% 110%, rgba(232, 182, 76, 0.07), transparent 60%),
-    linear-gradient(180deg, var(--bg-0), var(--bg-1));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
-  overflow-x: hidden;
+  padding: 3rem 1.25rem;
+  background:
+    radial-gradient(1000px 500px at 50% -20%, rgba(185,154,91,0.05), transparent 65%),
+    var(--bg);
 }
 
-button,
-input,
-a {
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M4 28 L6 26 C4 18 8 8 20 3 C26 1 30 2 30 2 C30 2 29 7 25 12 C19 20 12 24 7 25 L5 29 Z' fill='%23e8b64c' stroke='%238a6a20' stroke-width='1.5'/><path d='M5 29 L9 25 L11 27 L7 31 Z' fill='%23c8cfd8' stroke='%232b3240' stroke-width='1'/></svg>") 2 30, pointer;
-}
-
-.waves {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 200%;
-  height: 90px;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 90' preserveAspectRatio='none'><path d='M0 45 Q150 10 300 45 T600 45 T900 45 T1200 45 V90 H0 Z' fill='rgba(53,208,186,0.06)'/></svg>") repeat-x;
-  background-size: 50% 100%;
-  animation: drift 14s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes drift {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-.card {
-  position: relative;
-  z-index: 1;
+.frame {
   width: 100%;
-  max-width: 440px;
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding: 2.25rem 2rem;
+  max-width: 420px;
   text-align: center;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
-.flag {
-  font-size: 34px;
-  line-height: 1;
-  margin-bottom: 0.75rem;
+.eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 1.1rem;
 }
 
 h1 {
-  font-family: 'Pirata One', cursive;
-  font-weight: 400;
-  font-size: 40px;
-  line-height: 1.05;
-  letter-spacing: 0.5px;
-  color: var(--text);
-  margin-bottom: 0.4rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.8rem;
 }
 
-h1 span {
-  color: var(--gold);
-}
-
-.subtitle {
+.lede {
   font-size: 14px;
+  line-height: 1.6;
   color: var(--text-dim);
-  margin-bottom: 1.75rem;
+  margin-bottom: 2.5rem;
 }
 
-.subtitle strong {
-  color: var(--gold);
-  font-weight: 600;
+.lede em {
+  font-style: normal;
+  color: var(--text);
+}
+
+.rule {
+  width: 42px;
+  height: 1px;
+  background: var(--brass-dim);
+  margin: 0 auto 2.5rem;
 }
 
 .name-input {
   width: 100%;
   font-family: inherit;
   font-size: 15px;
+  text-align: center;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 13px 16px;
-  margin-bottom: 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 4px 12px;
+  margin-bottom: 2.75rem;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.25s;
 }
 
-.name-input::placeholder {
-  color: var(--text-dim);
-}
+.name-input::placeholder { color: var(--text-dim); opacity: 0.7; }
+.name-input:focus { border-color: var(--brass); }
 
-.name-input:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-soft);
-}
+.dial-wrap { position: relative; width: 210px; height: 210px; margin: 0 auto 2rem; }
+.dial-wrap svg { transform: rotate(-90deg); display: block; }
 
-.dial-wrap {
-  position: relative;
-  width: 190px;
-  height: 190px;
-  margin: 0 auto 1.25rem;
-}
-
-.dial-wrap svg {
-  transform: rotate(-90deg);
-}
-
-.dial-track {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.07);
-  stroke-width: 10;
-}
-
+.dial-track { fill: none; stroke: var(--line-soft); stroke-width: 1.5; }
 .dial-fill {
   fill: none;
-  stroke: var(--gold);
-  stroke-width: 10;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.35s ease, stroke 0.35s ease;
+  stroke: var(--brass);
+  stroke-width: 1.5;
+  transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease;
 }
-
-.dial-fill.savage {
-  stroke: var(--red);
-}
+.dial-fill.savage { stroke: var(--crimson); }
 
 .dial-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
 }
 
 .pct {
-  font-family: 'Pirata One', cursive;
-  font-size: 46px;
-  color: var(--text);
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 400;
+  font-size: 64px;
+  line-height: 1;
+  font-variant-numeric: lining-nums;
 }
 
-.pct-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+.pct sup { font-size: 26px; color: var(--text-dim); }
+
+.tier-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 500;
+  min-height: 32px;
+  margin-bottom: 0.3rem;
+}
+
+.tier-sub {
+  font-size: 13px;
   color: var(--text-dim);
-}
-
-.tier {
-  min-height: 22px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--gold);
-  margin-bottom: 1.5rem;
+  min-height: 18px;
+  margin-bottom: 2.25rem;
 }
 
 .spin-btn {
-  width: 100%;
-  font-family: 'Pirata One', cursive;
-  font-size: 22px;
-  letter-spacing: 1px;
-  color: #171207;
-  background: linear-gradient(135deg, var(--gold), #f5d47a);
-  border: none;
-  border-radius: 14px;
-  padding: 14px 0;
-  transition: transform 0.12s ease, filter 0.2s ease;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--brass);
+  background: transparent;
+  border: 1px solid var(--brass-dim);
+  padding: 15px 44px;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
 }
 
-.spin-btn:hover {
-  filter: brightness(1.08);
-}
-
-.spin-btn:active {
-  transform: scale(0.97);
-}
-
-.spin-btn:disabled {
-  opacity: 0.55;
-}
+.spin-btn:hover { background: var(--brass); color: var(--bg); border-color: var(--brass); }
+.spin-btn:active { transform: translateY(1px); }
+.spin-btn:disabled { opacity: 0.4; pointer-events: none; }
 
 .hint {
   font-size: 12px;
   color: var(--text-dim);
-  margin-top: 0.9rem;
+  opacity: 0.75;
+  margin-top: 1.1rem;
 }
 
 .story-box {
-  margin-top: 1.5rem;
-  background: var(--gold-soft);
-  border: 1px solid rgba(232, 182, 76, 0.35);
-  border-radius: 14px;
-  padding: 1.1rem 1.25rem;
+  margin-top: 2.5rem;
+  padding: 1.6rem 1.5rem;
+  border: 1px solid var(--line);
+  border-top: 1px solid var(--brass-dim);
   text-align: left;
-  animation: rise 0.4s ease;
+  animation: rise 0.5s ease;
 }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.story-box.hidden {
-  display: none;
-}
+.story-box.hidden { display: none; }
 
 .story-label {
-  font-family: 'Pirata One', cursive;
-  font-size: 17px;
-  color: var(--gold);
-  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin-bottom: 0.8rem;
 }
 
 .story-text {
-  font-size: 13.5px;
-  line-height: 1.65;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 19px;
+  line-height: 1.55;
   color: var(--text);
 }
 
-.music-bar {
-  position: relative;
-  z-index: 1;
-  margin-top: 1.25rem;
-  width: 100%;
-  max-width: 440px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding: 10px 18px;
-}
-
-.mute-btn {
-  flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--gold);
-  font-size: 17px;
+.sound-bar {
+  margin-top: 3.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  gap: 16px;
+  opacity: 0.85;
 }
 
-.mute-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.music-label {
-  font-size: 12px;
+.sound-toggle {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
   color: var(--text-dim);
-  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 9px 18px;
+  transition: color 0.25s, border-color 0.25s;
 }
+
+.sound-toggle:hover { color: var(--text); border-color: var(--line); }
+.sound-toggle.on { color: var(--brass); border-color: var(--brass-dim); }
 
 .volume {
-  flex: 1;
+  width: 130px;
   -webkit-appearance: none;
   appearance: none;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  height: 1px;
+  background: var(--line);
   outline: none;
+  transition: opacity 0.3s;
 }
+
+.volume:disabled { opacity: 0.25; }
 
 .volume::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 11px; height: 11px;
   border-radius: 50%;
-  background: var(--gold);
-  border: 2px solid #171207;
+  background: var(--brass);
+  border: none;
 }
 
 .volume::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 11px; height: 11px;
   border-radius: 50%;
-  background: var(--gold);
-  border: 2px solid #171207;
+  background: var(--brass);
+  border: none;
 }
 
 .footer {
-  position: relative;
-  z-index: 1;
-  margin-top: 1.5rem;
-  font-size: 12px;
+  margin-top: 2.25rem;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
   color: var(--text-dim);
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
-@media (max-width: 480px) {
-  h1 { font-size: 33px; }
-  .card { padding: 1.75rem 1.25rem; }
+@media (max-width: 460px) {
+  h1 { font-size: 36px; }
+  .pct { font-size: 54px; }
 }
-
 </style>
 </head>
 <body>
-  <div class="waves"></div>
 
-  <main class="card">
-    <div class="flag">&#127988;&#8205;&#9760;&#65039;</div>
-    <h1>How much of a <span>pirate</span> are ye?</h1>
-    <p class="subtitle">Spin the wheel and find yer true loyalty to <strong>Savage</strong></p>
+<main class="frame">
+  <div class="eyebrow">The loyalty test</div>
+  <h1>How much of a<br>pirate are you?</h1>
+  <p class="lede">Enter your name. The wheel does not deal in luck &mdash;<br>it deals in fate. Your loyalty to <em>Savage</em> awaits.</p>
+  <div class="rule"></div>
 
-    <input id="nameInput" class="name-input" type="text" placeholder="Enter yer pirate name" maxlength="40">
+  <input id="nameInput" class="name-input" type="text" placeholder="Your name" maxlength="40" autocomplete="off">
 
-    <div class="dial-wrap">
-      <svg width="190" height="190" viewBox="0 0 190 190">
-        <circle class="dial-track" cx="95" cy="95" r="84"></circle>
-        <circle id="dialFill" class="dial-fill" cx="95" cy="95" r="84"
-                stroke-dasharray="527.8" stroke-dashoffset="527.8"></circle>
-      </svg>
-      <div class="dial-center">
-        <div id="pct" class="pct">0%</div>
-        <div class="pct-label">pirate blood</div>
-      </div>
+  <div class="dial-wrap">
+    <svg width="210" height="210" viewBox="0 0 210 210">
+      <circle class="dial-track" cx="105" cy="105" r="96"></circle>
+      <circle id="dialFill" class="dial-fill" cx="105" cy="105" r="96"
+              stroke-dasharray="603.2" stroke-dashoffset="603.2"></circle>
+    </svg>
+    <div class="dial-center">
+      <div class="pct"><span id="pctNum">0</span><sup>%</sup></div>
     </div>
-
-    <div id="tier" class="tier">press spin to find yer pirate soul</div>
-
-    <button id="spinBtn" class="spin-btn">Spin the Wheel</button>
-    <p class="hint">Same name, same fate every time &mdash; it's a hash, not luck.</p>
-
-    <div id="story" class="story-box hidden">
-      <p class="story-label">True loyalty to Savage</p>
-      <p id="storyText" class="story-text"></p>
-    </div>
-  </main>
-
-  <div class="music-bar">
-    <button id="muteBtn" class="mute-btn" aria-label="Toggle music">&#9835;</button>
-    <span class="music-label">Shanty</span>
-    <input id="volume" class="volume" type="range" min="0" max="100" step="1" value="35" aria-label="Music volume">
   </div>
 
-  <footer class="footer">Yarrr &mdash; built for the crew</footer>
+  <div id="tierLabel" class="tier-label">&nbsp;</div>
+  <div id="tierSub" class="tier-sub">Consult the wheel</div>
 
-  <script>
+  <button id="spinBtn" class="spin-btn">Consult the wheel</button>
+  <p class="hint">The same name always meets the same fate.</p>
+
+  <div id="story" class="story-box hidden">
+    <p class="story-label">How Savage saved you</p>
+    <p id="storyText" class="story-text"></p>
+  </div>
+
+  <div class="sound-bar">
+    <button id="soundToggle" class="sound-toggle">Sound off</button>
+    <input id="volume" class="volume" type="range" min="0" max="100" step="1" value="40" disabled aria-label="Ambience volume">
+  </div>
+
+  <div class="footer">For the crew</div>
+</main>
+
+<script>
 const spinBtn = document.getElementById('spinBtn');
-const pctEl = document.getElementById('pct');
-const tierEl = document.getElementById('tier');
+const pctNum = document.getElementById('pctNum');
+const tierLabel = document.getElementById('tierLabel');
+const tierSub = document.getElementById('tierSub');
 const storyBox = document.getElementById('story');
 const storyText = document.getElementById('storyText');
 const nameInput = document.getElementById('nameInput');
 const dialFill = document.getElementById('dialFill');
-const muteBtn = document.getElementById('muteBtn');
+const soundToggle = document.getElementById('soundToggle');
 const volumeSlider = document.getElementById('volume');
 
-const CIRCUMFERENCE = 527.8;
+const CIRC = 603.2;
 
 function setDial(pct, savage) {
-  dialFill.style.strokeDashoffset = CIRCUMFERENCE - (CIRCUMFERENCE * pct) / 100;
+  dialFill.style.strokeDashoffset = CIRC - (CIRC * pct) / 100;
   dialFill.classList.toggle('savage', !!savage);
 }
 
-/* ---------------- Spin ---------------- */
-
 spinBtn.addEventListener('click', async () => {
-  startMusicIfNeeded();
   spinBtn.disabled = true;
   storyBox.classList.add('hidden');
-  tierEl.textContent = 'the wheel be spinnin...';
+  tierLabel.innerHTML = '&nbsp;';
+  tierSub.textContent = 'The wheel is turning\u2026';
 
   let ticks = 0;
-  const maxTicks = 18;
+  const maxTicks = 16;
   const tickInterval = setInterval(() => {
     ticks++;
     const fake = Math.floor(Math.random() * 100) + 1;
-    pctEl.textContent = fake + '%';
+    pctNum.textContent = fake;
     setDial(fake, false);
-  }, 70);
+  }, 80);
 
   const name = nameInput.value.trim();
   const url = name ? `/api/spin?name=${encodeURIComponent(name)}` : '/api/spin';
@@ -489,16 +411,17 @@ spinBtn.addEventListener('click', async () => {
     data = await res.json();
   } catch (err) {
     clearInterval(tickInterval);
-    tierEl.textContent = 'the ship hit a storm, try again';
+    tierSub.textContent = 'The sea swallowed the answer. Try again.';
     spinBtn.disabled = false;
     return;
   }
 
   setTimeout(() => {
     clearInterval(tickInterval);
-    pctEl.textContent = data.percent + '%';
+    pctNum.textContent = data.percent;
     setDial(data.percent, data.percent > 95);
-    tierEl.textContent = data.tier;
+    tierLabel.textContent = data.tier;
+    tierSub.textContent = data.sub;
 
     if (data.story) {
       storyText.textContent = data.story;
@@ -506,114 +429,88 @@ spinBtn.addEventListener('click', async () => {
     }
 
     spinBtn.disabled = false;
-  }, maxTicks * 70);
+  }, maxTicks * 80);
 });
 
-/* ---------------- Music ----------------
-   A sea-shanty style loop generated live with the Web Audio API.
-   No audio files, no copyright - the notes are synthesized in the browser.
-*/
+/* ---- Ambience: quiet ocean air, OFF by default ----
+   Generated with the Web Audio API: filtered noise swells like distant
+   surf, plus a very low, slow drone. No files, no copyright, no melody
+   to get stuck in your head. */
 
-let audioCtx = null;
-let masterGain = null;
-let shantyTimer = null;
-let muted = false;
+let ctx = null, master = null, running = false;
 
-const NOTES = {
-  D3: 146.83, F3: 174.61, G3: 196.0, A3: 220.0, Bb3: 233.08, C4: 261.63,
-  D4: 293.66, F4: 349.23, G4: 392.0, A4: 440.0, Bb4: 466.16, C5: 523.25, D5: 587.33,
-};
+function buildAmbience() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain();
+  master.gain.value = volumeSlider.value / 100 * 0.5;
+  master.connect(ctx.destination);
 
-// Melody in D minor, [note, beats] - a jaunty original shanty tune
-const MELODY = [
-  ['D4', 1], ['F4', 1], ['A4', 1], ['F4', 1],
-  ['G4', 1], ['A4', 0.5], ['G4', 0.5], ['F4', 1], ['D4', 1],
-  ['C4', 1], ['D4', 1], ['F4', 1], ['G4', 1],
-  ['A4', 2], ['G4', 1], ['F4', 1],
-  ['D4', 1], ['F4', 1], ['A4', 1], ['C5', 1],
-  ['D5', 1.5], ['C5', 0.5], ['A4', 1], ['G4', 1],
-  ['F4', 1], ['G4', 1], ['A4', 0.5], ['G4', 0.5], ['F4', 1],
-  ['D4', 3], ['D4', 1],
-];
-
-// Bass line, one note per bar (4 beats)
-const BASS = ['D3', 'G3', 'F3', 'A3', 'D3', 'G3', 'F3', 'D3'];
-
-const BPM = 168;
-const BEAT = 60 / BPM;
-
-function playNote(freq, startTime, duration, type, gainLevel) {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0, startTime);
-  gain.gain.linearRampToValueAtTime(gainLevel, startTime + 0.02);
-  gain.gain.setValueAtTime(gainLevel, startTime + duration * 0.7);
-  gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
-  osc.connect(gain);
-  gain.connect(masterGain);
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.05);
-}
-
-function scheduleLoop(startTime) {
-  let t = startTime;
-
-  // Melody - square wave gives it a fife/whistle feel
-  for (const [note, beats] of MELODY) {
-    playNote(NOTES[note], t, beats * BEAT * 0.9, 'square', 0.05);
-    t += beats * BEAT;
+  const len = ctx.sampleRate * 4;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) {
+    const white = Math.random() * 2 - 1;
+    last = (last + 0.02 * white) / 1.02;
+    d[i] = last * 3.5;
   }
 
-  // Bass - triangle wave, one note per bar
-  let bt = startTime;
-  for (const note of BASS) {
-    playNote(NOTES[note], bt, 4 * BEAT * 0.95, 'triangle', 0.09);
-    bt += 4 * BEAT;
+  const noise = ctx.createBufferSource();
+  noise.buffer = buf;
+  noise.loop = true;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 420;
+  lp.Q.value = 0.4;
+
+  const swell = ctx.createGain();
+  swell.gain.value = 0.25;
+
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 0.07;
+  const lfoGain = ctx.createGain();
+  lfoGain.gain.value = 0.15;
+  lfo.connect(lfoGain);
+  lfoGain.connect(swell.gain);
+
+  noise.connect(lp); lp.connect(swell); swell.connect(master);
+
+  const drone = ctx.createOscillator();
+  drone.type = 'sine';
+  drone.frequency.value = 55;
+  const droneGain = ctx.createGain();
+  droneGain.gain.value = 0.05;
+  drone.connect(droneGain); droneGain.connect(master);
+
+  noise.start(); lfo.start(); drone.start();
+}
+
+soundToggle.addEventListener('click', () => {
+  if (!ctx) buildAmbience();
+  if (ctx.state === 'suspended') ctx.resume();
+  running = !running;
+  if (running) {
+    master.gain.setTargetAtTime(volumeSlider.value / 100 * 0.5, ctx.currentTime, 0.4);
+    soundToggle.textContent = 'Sound on';
+    soundToggle.classList.add('on');
+    volumeSlider.disabled = false;
+  } else {
+    master.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    soundToggle.textContent = 'Sound off';
+    soundToggle.classList.remove('on');
+    volumeSlider.disabled = true;
   }
-
-  const loopLength = t - startTime;
-  shantyTimer = setTimeout(() => scheduleLoop(audioCtx.currentTime + 0.05), (loopLength - 0.2) * 1000);
-}
-
-function startMusicIfNeeded() {
-  if (audioCtx) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    return;
-  }
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = muted ? 0 : volumeSlider.value / 100;
-  masterGain.connect(audioCtx.destination);
-  scheduleLoop(audioCtx.currentTime + 0.1);
-}
-
-function applyVolume() {
-  if (!masterGain) return;
-  masterGain.gain.setTargetAtTime(muted ? 0 : volumeSlider.value / 100, audioCtx.currentTime, 0.03);
-}
+});
 
 volumeSlider.addEventListener('input', () => {
-  if (muted && volumeSlider.value > 0) {
-    muted = false;
-    muteBtn.innerHTML = '&#9835;';
+  if (ctx && running) {
+    master.gain.setTargetAtTime(volumeSlider.value / 100 * 0.5, ctx.currentTime, 0.05);
   }
-  startMusicIfNeeded();
-  applyVolume();
 });
-
-muteBtn.addEventListener('click', () => {
-  startMusicIfNeeded();
-  muted = !muted;
-  muteBtn.innerHTML = muted ? '&#128263;' : '&#9835;';
-  applyVolume();
-});
-
 </script>
 </body>
-</html>
-"""
+</html>"""
 
 
 @app.route("/")
@@ -629,7 +526,8 @@ def spin():
     else:
         pct = random.randint(1, 100)
         story = random.choice(STORIES) if pct > 95 else None
-    result = {"percent": pct, "tier": get_tier(pct)}
+    tier = get_tier(pct)
+    result = {"percent": pct, "tier": tier["label"], "sub": tier["sub"]}
     if story:
         result["story"] = story
     return jsonify(result)

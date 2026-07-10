@@ -1,9 +1,12 @@
 import os
 import random
 import hashlib
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 
 app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKGROUND_PATH = os.path.join(BASE_DIR, "background.png")
 
 TIERS = [
     {"max": 20, "label": "Landlubber", "sub": "Scared of a rowboat"},
@@ -93,6 +96,8 @@ PAGE = r"""<!DOCTYPE html>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
+  width: 100%;
+  min-height: 100%;
   cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M3 25 L5 23 C3.5 16 7 7 17 3 C22 1.2 26 2 26 2 C26 2 25 6 21.5 10.5 C16.5 17 10.5 21 6 22 L4 26 Z' fill='%23d6d3ca' stroke='%23555248' stroke-width='1'/><path d='M4 26 L7.5 22.5 L9 24 L5.5 27.5 Z' fill='%23b99a5b'/></svg>") 2 26, auto;
   background: var(--bg);
 }
@@ -103,23 +108,23 @@ button, input {
 
 body {
   min-height: 100vh;
+  min-height: 100svh;
   font-family: 'Inter', system-ui, sans-serif;
   color: var(--text);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1.25rem 8rem;
+  padding: clamp(0.75rem, 2.5vh, 2rem) clamp(0.75rem, 2.5vw, 2rem);
   position: relative;
   overflow-x: hidden;
   background:
-    radial-gradient(1000px 500px at 50% -20%, rgba(185,154,91,0.05), transparent 65%),
-    var(--bg);
+    linear-gradient(rgba(2, 5, 12, 0.38), rgba(2, 5, 12, 0.7)),
+    url('/background.png') center center / cover no-repeat fixed;
 }
 
 /* ---- Pirate scenery ---- */
 
-.scenery { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.scenery { display: none; }
 
 .ship {
   position: absolute;
@@ -161,7 +166,26 @@ body {
 
 /* ---- Layout ---- */
 
-.frame { width: 100%; max-width: 430px; text-align: center; position: relative; z-index: 1; }
+.frame-shell {
+  width: min(430px, calc(100vw - 1.5rem));
+  position: relative;
+  z-index: 1;
+}
+
+.frame {
+  width: 430px;
+  max-width: calc(100vw - 1.5rem);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  padding: clamp(1.25rem, 2.6vw, 2rem);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(180deg, rgba(3,8,19,0.84), rgba(8,6,15,0.9));
+  box-shadow: 0 22px 80px rgba(0,0,0,0.58), inset 0 0 50px rgba(56,32,95,0.12);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
+  transform-origin: top center;
+}
 
 .jolly { width: 74px; margin: 0 auto 1.2rem; display: block; opacity: 0.9; }
 
@@ -238,20 +262,38 @@ h1 {
 
 .coin { width: 22px; height: 22px; flex: 0 0 auto; opacity: 0.9; }
 
-.tribute-slider {
+.tribute-entry {
   flex: 1;
-  -webkit-appearance: none; appearance: none;
-  height: 1px; background: var(--line); outline: none;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,0.2);
+  transition: border-color 0.25s, box-shadow 0.25s;
 }
-.tribute-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none;
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--brass); border: none;
+.tribute-entry:focus-within {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 3px var(--brass-faint);
 }
-.tribute-slider::-moz-range-thumb {
-  width: 13px; height: 13px; border-radius: 50%;
-  background: var(--brass); border: none;
+.tribute-currency {
+  padding-left: 13px;
+  color: var(--brass);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
 }
+.tribute-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: 500 15px 'Inter', sans-serif;
+  padding: 12px 13px 12px 7px;
+}
+.tribute-input::placeholder { color: var(--text-dim); opacity: 0.72; }
+.tribute-input::-webkit-outer-spin-button,
+.tribute-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tribute-input[type=number] { -moz-appearance: textfield; }
 
 .tribute-off {
   margin-top: 0.9rem;
@@ -370,10 +412,24 @@ h1 {
 }
 
 @media (max-width: 500px) {
-  h1 { font-size: 36px; }
+  body {
+    align-items: flex-start;
+    background-attachment: scroll;
+    padding: 0.75rem;
+  }
+  .frame { padding: 1.15rem; }
+  h1 { font-size: clamp(32px, 10vw, 38px); }
+  .lede { font-size: 13px; }
+  .dial-wrap { transform: scale(0.9); margin-top: -10px; margin-bottom: 0.7rem; }
   .pct { font-size: 52px; }
-  .ship { width: 150px; right: -20px; }
-  .cannon-l { width: 90px; left: -14px; }
+  .sound-bar { flex-wrap: wrap; gap: 12px; }
+  .volume { width: min(130px, 40vw); }
+}
+
+@media (max-width: 360px) {
+  .tribute-head { align-items: flex-start; gap: 8px; }
+  .tribute-label { letter-spacing: 0.2em; }
+  .spin-btn { width: 100%; padding-left: 12px; padding-right: 12px; }
 }
 </style>
 </head>
@@ -404,7 +460,8 @@ h1 {
   </svg>
 </div>
 
-<main class="frame">
+<div id="frameShell" class="frame-shell">
+<main id="appFrame" class="frame">
   <svg class="jolly" viewBox="0 0 80 80" fill="none" stroke="#b99a5b" stroke-width="1.6">
     <circle cx="40" cy="32" r="15"/>
     <circle cx="34" cy="30" r="2.6" fill="#b99a5b" stroke="none"/>
@@ -444,10 +501,13 @@ h1 {
         <circle cx="11" cy="11" r="6.5" opacity="0.5"/>
         <path d="M11 7.5 V14.5 M8.5 9 Q11 7 13.5 9 M8.5 13 Q11 15 13.5 13"/>
       </svg>
-      <input id="tributeSlider" class="tribute-slider" type="range" min="2" max="100" step="1" value="2">
+      <label class="tribute-entry" for="tributeInput">
+        <span class="tribute-currency">$</span>
+        <input id="tributeInput" class="tribute-input" type="number" min="2" max="100" step="1" placeholder="Enter 2 to 100" inputmode="numeric" autocomplete="off">
+      </label>
     </div>
 
-    <button id="tributeOff" class="tribute-off active">No tribute &mdash; face fate honestly</button>
+    <button id="tributeOff" class="tribute-off active" type="button">Clear tribute &mdash; face fate honestly</button>
   </div>
 
   <div class="dial-wrap">
@@ -489,6 +549,7 @@ h1 {
 
   <div class="footer">For the crew</div>
 </main>
+</div>
 
 <script>
 const spinBtn = document.getElementById('spinBtn');
@@ -502,13 +563,14 @@ const nameInput = document.getElementById('nameInput');
 const dialFill = document.getElementById('dialFill');
 const soundToggle = document.getElementById('soundToggle');
 const volumeSlider = document.getElementById('volume');
-const tributeSlider = document.getElementById('tributeSlider');
+const tributeInput = document.getElementById('tributeInput');
 const tributeAmount = document.getElementById('tributeAmount');
 const tributeSub = document.getElementById('tributeSub');
 const tributeOff = document.getElementById('tributeOff');
+const frameShell = document.getElementById('frameShell');
+const appFrame = document.getElementById('appFrame');
 
 const CIRC = 603.2;
-let tributeActive = false;
 
 function setDial(pct, savage) {
   dialFill.style.strokeDashoffset = CIRC - (CIRC * pct) / 100;
@@ -517,14 +579,22 @@ function setDial(pct, savage) {
 
 function boostFor(t) { return Math.round(10 + (t - 2) * (85 / 98)); }
 
+function getTribute() {
+  const raw = tributeInput.value.trim();
+  if (!raw) return 0;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.round(Math.max(2, Math.min(100, amount)));
+}
+
 function updateTributeUI() {
-  if (!tributeActive) {
+  const t = getTribute();
+  if (!t) {
     tributeAmount.innerHTML = '&mdash;';
-    tributeSub.textContent = 'The wheel is not above bribery.';
+    tributeSub.textContent = 'Type a tribute from $2 to $100, or leave it blank.';
     tributeOff.classList.add('active');
     return;
   }
-  const t = parseInt(tributeSlider.value, 10);
   tributeAmount.textContent = '$' + t;
   if (t >= 100) {
     tributeSub.textContent = 'Boost +95 - Savage rank all but guaranteed.';
@@ -534,8 +604,17 @@ function updateTributeUI() {
   tributeOff.classList.remove('active');
 }
 
-tributeSlider.addEventListener('input', () => { tributeActive = true; updateTributeUI(); });
-tributeOff.addEventListener('click', () => { tributeActive = false; tributeSlider.value = 2; updateTributeUI(); });
+tributeInput.addEventListener('input', updateTributeUI);
+tributeInput.addEventListener('blur', () => {
+  const t = getTribute();
+  tributeInput.value = t ? t : '';
+  updateTributeUI();
+});
+tributeOff.addEventListener('click', () => {
+  tributeInput.value = '';
+  updateTributeUI();
+  tributeInput.focus();
+});
 
 spinBtn.addEventListener('click', async () => {
   spinBtn.disabled = true;
@@ -556,7 +635,8 @@ spinBtn.addEventListener('click', async () => {
   const name = nameInput.value.trim();
   const params = new URLSearchParams();
   if (name) params.set('name', name);
-  if (tributeActive) params.set('tribute', tributeSlider.value);
+  const tribute = getTribute();
+  if (tribute) params.set('tribute', tribute);
   const qs = params.toString();
   const url = qs ? '/api/spin?' + qs : '/api/spin';
 
@@ -588,8 +668,40 @@ spinBtn.addEventListener('click', async () => {
     }
 
     spinBtn.disabled = false;
+    requestAnimationFrame(fitAppToViewport);
   }, maxTicks * 80);
 });
+
+/* ---- Keep the full app fitted on shorter desktop screens ---- */
+
+function fitAppToViewport() {
+  appFrame.style.transform = 'none';
+  frameShell.style.width = '';
+  frameShell.style.height = '';
+
+  // Phones and narrow tablets use natural responsive scrolling.
+  if (window.innerWidth < 700) return;
+
+  const naturalWidth = appFrame.offsetWidth;
+  const naturalHeight = appFrame.offsetHeight;
+  const availableWidth = Math.max(320, window.innerWidth - 24);
+  const availableHeight = Math.max(480, window.innerHeight - 24);
+  const scale = Math.min(1, availableWidth / naturalWidth, availableHeight / naturalHeight);
+
+  if (scale < 0.995) {
+    appFrame.style.transform = `scale(${scale})`;
+    frameShell.style.width = `${naturalWidth * scale}px`;
+    frameShell.style.height = `${naturalHeight * scale}px`;
+  }
+}
+
+window.addEventListener('resize', fitAppToViewport);
+window.addEventListener('orientationchange', fitAppToViewport);
+requestAnimationFrame(fitAppToViewport);
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(fitAppToViewport);
+}
+updateTributeUI();
 
 /* ---- Ambience: quiet ocean air, OFF by default ---- */
 
@@ -664,6 +776,11 @@ volumeSlider.addEventListener('input', () => {
 @app.route("/")
 def index():
     return PAGE
+
+
+@app.route("/background.png")
+def background():
+    return send_file(BACKGROUND_PATH, mimetype="image/png", max_age=86400)
 
 
 @app.route("/api/spin")

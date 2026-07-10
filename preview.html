@@ -1,11 +1,85 @@
-<!DOCTYPE html>
+import os
+import random
+import hashlib
+from flask import Flask, jsonify, request, send_file
+
+app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKGROUND_PATH = os.path.join(BASE_DIR, "background.png")
+
+TIERS = [
+    {"max": 20, "label": "Landlubber", "sub": "Scared of a rowboat"},
+    {"max": 40, "label": "Deckhand", "sub": "Swabs when told"},
+    {"max": 60, "label": "Buccaneer", "sub": "Knows the ropes"},
+    {"max": 80, "label": "First Mate", "sub": "Would take a cannonball for the crew"},
+    {"max": 95, "label": "True Pirate", "sub": "Loyalty runs deep as the sea"},
+    {"max": 100, "label": "Savage", "sub": "The crew answers to you now"},
+]
+
+STORIES = [
+    "You were stranded on a desert island with only a coconut and regret. "
+    "Savage sailed by, saw you waving, and said 'not today, landlubber' - "
+    "then turned the ship around anyway, because leaving you looked bad on "
+    "the crew's reputation.",
+
+    "The kraken had you by the ankle. Savage didn't fight it. Savage just "
+    "stared at the kraken until it let go out of pure secondhand embarrassment.",
+
+    "You lost a bet and were tied to the mast during a storm. Savage untied "
+    "you - but only after finishing a sandwich first, because priorities.",
+
+    "Mutineers threw you overboard. Savage jumped in after you, realized "
+    "the water was cold, and dragged you both back up complaining the whole time.",
+
+    "You were locked in the brig for stealing the last biscuit. Savage "
+    "picked the lock with a fork, ate the evidence, and blamed the parrot.",
+]
+
+TRIBUTE_MIN = 2
+TRIBUTE_MAX = 100
+
+
+def get_tier(pct):
+    for tier in TIERS:
+        if pct <= tier["max"]:
+            return tier
+    return TIERS[-1]
+
+
+def hash_name(name, salt):
+    digest = hashlib.sha256((salt + name.strip().lower()).encode("utf-8")).hexdigest()
+    return int(digest, 16)
+
+
+def tribute_boost(tribute):
+    """
+    $2 buys a +10 boost. Each dollar above that buys a little more,
+    scaling linearly so that $100 lands a +95 boost - which, added to
+    even the unluckiest base roll of 1, guarantees at least 96% (Savage).
+    """
+    tribute = max(TRIBUTE_MIN, min(TRIBUTE_MAX, tribute))
+    return round(10 + (tribute - TRIBUTE_MIN) * (85 / (TRIBUTE_MAX - TRIBUTE_MIN)))
+
+
+def spin_for_name(name, tribute=0):
+    base = (hash_name(name, "pct:") % 100) + 1
+    boost = tribute_boost(tribute) if tribute >= TRIBUTE_MIN else 0
+    pct = min(100, base + boost)
+    story = None
+    if pct > 95:
+        story = STORIES[hash_name(name, "story:") % len(STORIES)]
+    return pct, base, boost, story
+
+
+PAGE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Loyalty Test</title>
-
-
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #0c0e11;
@@ -44,8 +118,8 @@ body {
   position: relative;
   overflow-x: hidden;
   background:
-    linear-gradient(rgba(2, 5, 12, 0.38), rgba(2, 5, 12, 0.7)),
-    url('background.png') center center / cover no-repeat fixed;
+    linear-gradient(rgba(3, 8, 18, 0.16), rgba(5, 10, 20, 0.42)),
+    url('/background.png') center center / cover no-repeat fixed;
 }
 
 /* ---- Pirate scenery ---- */
@@ -93,23 +167,25 @@ body {
 /* ---- Layout ---- */
 
 .frame-shell {
-  width: min(430px, calc(100vw - 1.5rem));
+  width: min(60vw, 1200px);
+  min-width: min(60vw, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
   position: relative;
   z-index: 1;
 }
 
 .frame {
-  width: 430px;
-  max-width: calc(100vw - 1.5rem);
+  width: 100%;
+  max-width: 100%;
   text-align: center;
   position: relative;
   z-index: 1;
-  padding: clamp(1.25rem, 2.6vw, 2rem);
-  border: 1px solid rgba(255,255,255,0.12);
-  background: linear-gradient(180deg, rgba(3,8,19,0.84), rgba(8,6,15,0.9));
-  box-shadow: 0 22px 80px rgba(0,0,0,0.58), inset 0 0 50px rgba(56,32,95,0.12);
-  -webkit-backdrop-filter: blur(12px) saturate(1.15);
-  backdrop-filter: blur(12px) saturate(1.15);
+  padding: clamp(1.6rem, 2.9vw, 2.75rem);
+  border: 1px solid rgba(255,255,255,0.11);
+  background: linear-gradient(180deg, rgba(8,14,30,0.48), rgba(16,11,29,0.58));
+  box-shadow: 0 18px 60px rgba(0,0,0,0.34), inset 0 0 40px rgba(95, 73, 160, 0.08);
+  -webkit-backdrop-filter: blur(10px) saturate(1.12);
+  backdrop-filter: blur(10px) saturate(1.12);
   transform-origin: top center;
 }
 
@@ -337,13 +413,21 @@ h1 {
   text-transform: uppercase; color: var(--text-dim); opacity: 0.5;
 }
 
-@media (max-width: 500px) {
+@media (max-width: 700px) {
   body {
     align-items: flex-start;
     background-attachment: scroll;
     padding: 0.75rem;
   }
+  .frame-shell {
+    width: min(430px, calc(100vw - 1.5rem));
+    min-width: 0;
+    max-width: calc(100vw - 1.5rem);
+  }
   .frame { padding: 1.15rem; }
+}
+
+@media (max-width: 500px) {
   h1 { font-size: clamp(32px, 10vw, 38px); }
   .lede { font-size: 13px; }
   .dial-wrap { transform: scale(0.9); margin-top: -10px; margin-bottom: 0.7rem; }
@@ -696,4 +780,45 @@ volumeSlider.addEventListener('input', () => {
 });
 </script>
 </body>
-</html>
+</html>"""
+
+
+@app.route("/")
+def index():
+    return PAGE
+
+
+@app.route("/background.png")
+def background():
+    return send_file(BACKGROUND_PATH, mimetype="image/png", max_age=86400)
+
+
+@app.route("/api/spin")
+def spin():
+    name = request.args.get("name", "").strip()
+    tribute = request.args.get("tribute", type=int) or 0
+
+    if name:
+        pct, base, boost, story = spin_for_name(name, tribute)
+    else:
+        base = random.randint(1, 100)
+        boost = tribute_boost(tribute) if tribute >= TRIBUTE_MIN else 0
+        pct = min(100, base + boost)
+        story = random.choice(STORIES) if pct > 95 else None
+
+    tier = get_tier(pct)
+    result = {
+        "percent": pct,
+        "base": base,
+        "boost": boost,
+        "tier": tier["label"],
+        "sub": tier["sub"],
+    }
+    if story:
+        result["story"] = story
+    return jsonify(result)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

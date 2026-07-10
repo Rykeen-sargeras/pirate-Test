@@ -1,0 +1,46 @@
+const spinBtn = document.getElementById('spinBtn');
+const pctEl = document.getElementById('pct');
+const tierEl = document.getElementById('tier');
+const storyBox = document.getElementById('story');
+const storyText = document.getElementById('storyText');
+const nameInput = document.getElementById('nameInput');
+
+spinBtn.addEventListener('click', async () => {
+  spinBtn.disabled = true;
+  storyBox.classList.add('hidden');
+  tierEl.textContent = 'the wheel be spinnin...';
+
+  let ticks = 0;
+  const maxTicks = 18;
+  const tickInterval = setInterval(() => {
+    ticks++;
+    pctEl.textContent = (Math.floor(Math.random() * 100) + 1) + '%';
+  }, 60);
+
+  const name = nameInput.value.trim();
+  const url = name ? `/api/spin?name=${encodeURIComponent(name)}` : '/api/spin';
+
+  let data;
+  try {
+    const res = await fetch(url);
+    data = await res.json();
+  } catch (err) {
+    clearInterval(tickInterval);
+    tierEl.textContent = 'the ship hit a storm, try again';
+    spinBtn.disabled = false;
+    return;
+  }
+
+  setTimeout(() => {
+    clearInterval(tickInterval);
+    pctEl.textContent = data.percent + '%';
+    tierEl.textContent = data.tier;
+
+    if (data.story) {
+      storyText.textContent = data.story;
+      storyBox.classList.remove('hidden');
+    }
+
+    spinBtn.disabled = false;
+  }, maxTicks * 60);
+});
